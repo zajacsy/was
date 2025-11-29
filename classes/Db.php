@@ -133,6 +133,19 @@ class Db
         return $stmt->execute([$encrypted_hash, $salt, $uid]);
     }
 
+    public function updateUserAccount($uid, $email, $name, $surname)
+    {
+        $uid = intval($uid);
+
+        $email = Filter::filterEmail($email);
+        $name = Filter::filterName($name);
+        $surname = Filter::filterName($surname);
+
+        $stmt = $this->pdo->prepare("
+            UPDATE user SET email = ?, name = ?, surname = ? WHERE id = ?
+            ");
+        return $stmt->execute([$email, $name, $surname, $uid]);
+    }
 
     /* ----------------------- LOG FUNCTIONS ----------------------- */
 

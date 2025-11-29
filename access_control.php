@@ -136,6 +136,10 @@ if (isset($_POST['delete_message']) && isset($_SESSION['uid'])) {
     }
 }
 
+/* -------------------------------------------------------
+    CHANGE PASSWORD (POST)
+-------------------------------------------------------- */
+
 if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
     $new = $_POST['new_password'];
     $confirm = $_POST['new_password_confirm'];
@@ -150,6 +154,26 @@ if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
     }
 }
 
+
+/* -------------------------------------------------------
+   UPDATE USER (POST)
+-------------------------------------------------------- */
+
+if (isset($_POST['update_profile_btn']) && isset($_SESSION['uid'])) {
+
+    $email = $_POST['email'] ?? '';
+    $name = $_POST['name'] ?? '';
+    $surname = $_POST['surname'] ?? '';
+
+    if ($db->updateUserAccount($_SESSION['uid'], $email, $name, $surname)) {
+        echo "<p style='color:green'>Dane profilu zaktualizowane pomyślnie!</p>";
+        // Przekierowanie, aby wymusić odświeżenie danych na stronie
+        header("Location: access_control.php");
+        exit;
+    } else {
+        echo "<p style='color:red'>Aktualizacja profilu nie powiodła się (Błąd bazy danych).</p>";
+    }
+}
 
 ?>
 
@@ -189,8 +213,16 @@ elseif (isset($_SESSION['2fa_pending'])):
     </form>
 
 <?php
-// Jeśli zalogowany - wyświetl Wylogowanie i Zmianę hasła
+// Jeśli zalogowany - wyświetl Wylogowanie i Zmianę hasła i edycje danych
 elseif (isset($_SESSION['uid'])):
+
+    // POBIERAMY OBIEKT UŻYTKOWNIKA JEDEN RAZ
+    $user = $db->getUserById($_SESSION['uid']);
+    if (!$user) {
+        session_destroy();
+        header("Location: access_control.php");
+        exit;
+    }
     ?>
     <hr>
     <h3>Logout</h3>
@@ -205,19 +237,25 @@ elseif (isset($_SESSION['uid'])):
         Confirm: <input type="password" name="new_password_confirm" required minlength="8"><br>
         <input type="submit" name="change_password_btn" value="Change Password">
     </form>
+
+    <hr>
+    <h3>Aktualizacja danych (Email, Imię, Nazwisko)</h3>
+    <form method="post">
+        Email: <input type="email" name="email" required value="<?php echo htmlspecialchars($user->email); ?>"><br>
+        Imię: <input type="text" name="name" required value="<?php echo htmlspecialchars($user->name); ?>"><br>
+        Nazwisko: <input type="text" name="surname" required value="<?php echo htmlspecialchars($user->surname); ?>"><br>
+        <input type="submit" name="update_profile_btn" value="Zapisz zmiany">
+    </form>
+
+
 <?php endif; ?>
 
 <hr>
 <h3>Logs</h3>
 <ul>
     <?php
-    // Pobranie zalogowanego użytkownika (jeśli zalogowany)
-    $user = null;
-    if (isset($_SESSION['uid'])) {
-        $user = $db->getUserById($_SESSION['uid']); // wymaga getUserById() w Db
-    }
 
-    if ($user) {
+    if (isset($user)) {
         // Jeśli admin – wszystkie logi, jeśli zwykły użytkownik – tylko własne
         if (strtoupper($user->privilleges) === 'ADMIN') {
             $logs = $db->getLogs(); // admin widzi wszystkie logi
