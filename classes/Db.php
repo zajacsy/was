@@ -1,9 +1,11 @@
 <?php
 require_once "Filter.php";
+require_once "Aes.php";
 
 class Db
 {
     private PDO $pdo;
+    private Aes $aes;
 
     public function __construct($host, $user, $pass, $dbname)
     {
@@ -17,6 +19,8 @@ class Db
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ
         ]);
+
+        $this->aes = new Aes();
     }
 
     /* --------------------- MESSAGE FUNCTIONS --------------------- */
@@ -73,6 +77,24 @@ class Db
 
     /* ----------------------- USER FUNCTIONS ----------------------- */
 
+    public function createUser($login, $password, $privilleges = 'USER')
+    {
+        $login = Filter::filterName($login);
+        $privilleges = strtoupper($privilleges);
+        $salt = bin2hex(random_bytes(16));
+
+        $raw_hash = hash('sha512', $password . $salt);
+        $encrypted_hash = $this->aes->encrypt($raw_hash);
+
+
+        $stmt = $this->pdo->prepare("
+            INSERT INTO user (login, hash, salt, privilleges)
+            VALUES (?, ?, ?, ?)
+        ");
+
+        return $stmt->execute([$login, $encrypted_hash, $salt, $privilleges]);
+    }
+
     public function getUserByLoginAndPassword($login, $password)
     {
         $login = Filter::filterName($login);
@@ -84,36 +106,24 @@ class Db
 
         if (!$user || !$user->salt || !$user->hash) return false;
 
+        $decrypted_hash = $this->aes->decrypt($user->hash);
+
         $checkhash = hash('sha512', $password . $user->salt);
 
-        return ($checkhash === $user->hash) ? $user : false;
-    }
-
-    public function createUser($login, $password, $privilleges = 'USER')
-    {
-        $login = Filter::filterName($login);
-        $privilleges = strtoupper($privilleges);
-        $salt = bin2hex(random_bytes(16));
-
-        $hash = hash('sha512', $password . $salt);
-
-        $stmt = $this->pdo->prepare("
-            INSERT INTO user (login, hash, salt, privilleges)
-            VALUES (?, ?, ?, ?)
-        ");
-
-        return $stmt->execute([$login, $hash, $salt, $privilleges]);
+        return ($checkhash === $decrypted_hash) ? $user : false;
     }
 
     public function changePassword($uid, $newPassword) {
         $uid = intval($uid);
         $salt = bin2hex(random_bytes(16));
-        $hash = hash('sha512', $newPassword . $salt);
+        $raw_hash = hash('sha512', $newPassword . $salt);
+
+        $encrypted_hash = $this->aes->encrypt($raw_hash);
 
         $stmt = $this->pdo->prepare("
             UPDATE user SET hash = ?, salt = ? WHERE id = ?
             ");
-        return $stmt->execute([$hash, $salt, $uid]);
+        return $stmt->execute([$encrypted_hash, $salt, $uid]);
     }
 
 
