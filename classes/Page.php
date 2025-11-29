@@ -14,6 +14,14 @@ class Page
 
         <body>
             <?php
+        self::display_user_status();
+    }
+    static function display_user_status() {
+        if (isset($_SESSION['login'])) {
+            echo "<p>Status: Zalogowany jako <b>" . htmlspecialchars($_SESSION['login']) . "</b></p>";
+        } else {
+            echo "<p>Status: <b>Niezalogowany</b></p>";
+        }
     }
     static function display_navigation()
     { ?>

@@ -1,4 +1,5 @@
 <?php
+include_once "session_handler.php";
 include_once "classes/Page.php";
 include_once "classes/Db.php";
 

@@ -1,11 +1,11 @@
 <?php
+include_once "session_handler.php";
 include_once "classes/Db.php";
 include_once "classes/Page.php";
 include_once "classes/Filter.php";
 
 Page::display_header("Access Control");
 
-session_start();
 $db = new Db("localhost", "root", "", "bezpieczenstwo");
 
 /* -------------------------------------------------------
