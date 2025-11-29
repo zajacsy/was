@@ -170,6 +170,14 @@ public function getUserById($id) {
         $stmt->execute([intval($id)]);
         return $stmt->fetch();
     }
+    public function update2FACode($uid, $code)
+    {
+        // Używamy kolumny temp_2fa_code (zakładamy, że została dodana)
+        $stmt = $this->pdo->prepare("
+            UPDATE user SET temp_2fa_code = ? WHERE id = ?
+        ");
+        return $stmt->execute([$code, intval($uid)]);
+    }
 
     public function searchMessages($text) {
         $text = '%' . $text . '%';

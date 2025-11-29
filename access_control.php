@@ -9,21 +9,76 @@ Page::display_header("Access Control");
 $db = new Db("localhost", "root", "", "bezpieczenstwo");
 
 /* -------------------------------------------------------
-   LOGIN
+   WYŚWIETLANIE KOMUNIKATU O WYGAŚNIĘCIU SESJI (Task 6)
+-------------------------------------------------------- */
+if (isset($_SESSION['timeout_message'])) {
+    echo "<p style='color:red'>" . htmlspecialchars($_SESSION['timeout_message']) . "</p>";
+    unset($_SESSION['timeout_message']);
+}
+
+
+/* -------------------------------------------------------
+   2FA CODE VERIFICATION (DODANE - ETAP 2 LOGOWANIA) (Task 5)
+-------------------------------------------------------- */
+if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
+    $entered_code = $_POST['two_factor_code'];
+    $user_id = $_SESSION['pending_uid'];
+
+    $user = $db->getUserById($user_id);
+
+    if ($user && $entered_code === $user->temp_2fa_code && strlen($entered_code) === 6) {
+        // UDANE LOGOWANIE (Etap 2 Zakończony)
+
+        // Usuń tymczasowe zmienne sesji 2FA
+        unset($_SESSION['2fa_pending']);
+        unset($_SESSION['pending_uid']);
+
+        // Ustaw końcowe zmienne sesji
+        $_SESSION['uid'] = $user->id;
+        $_SESSION['login'] = $user->login;
+
+        // Ustaw CZAS WYGAŚNIĘCIA SESJI (Ukończenie Task 6)
+        $_SESSION['expire'] = time() + SESSION_TIMEOUT_SECONDS;
+
+        // Wyczyść kod 2FA w bazie danych
+        $db->update2FACode($user->id, null);
+
+        $db->addLog($user->id, "User logged in successfully with 2FA");
+        echo "<p>Logged in as <b>{$user->login}</b></p>";
+    } else {
+        echo "<p style='color:red'>Invalid 2FA code or temporary session lost. Please try logging in again.</p>";
+    }
+}
+
+
+/* -------------------------------------------------------
+   LOGIN (ZMODYFIKOWANE DLA ETAPU 1 2FA) (Task 5)
 -------------------------------------------------------- */
 if (isset($_POST['login_btn'])) {
 
     $login = Filter::filterName($_POST['login']);
-    $password = $_POST['password'];  // hasła nie filtrujemy
+    $password = $_POST['password'];
 
     $user = $db->getUserByLoginAndPassword($login, $password);
 
+    // Sprawdzenie loginu i hasła
     if ($user) {
-        $_SESSION['uid'] = $user->id;
-        $_SESSION['login'] = $user->login;
+        // Udane sprawdzenie login/hasło (Etap 1)
 
-        $db->addLog($user->id, "User logged in");
-        echo "<p>Logged in as <b>{$user->login}</b></p>";
+        // 1. Generowanie 6-cyfrowego kodu
+        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // 2. Zapisz kod tymczasowo w bazie danych
+        $db->update2FACode($user->id, $code);
+
+        // 3. Ustaw tymczasowe zmienne sesji do śledzenia 2FA
+        $_SESSION['2fa_pending'] = true;
+        $_SESSION['pending_uid'] = $user->id;
+
+        // 4. Symulacja wysyłki kodu
+        echo "<p style='color:blue'>Login successful. A 6-digit code has been 'sent' to your email (<b>{$user->email}</b>). W celach demonstracyjnych, kod to: <b>$code</b>.</p>";
+        echo "<p>Proszę wprowadzić kod poniżej.</p>";
+
     } else {
         echo "<p style='color:red'>Login failed</p>";
     }
@@ -38,7 +93,7 @@ if (isset($_POST['logout_btn'])) {
     }
     session_destroy();
     header("Location: access_control.php");
-    echo "<p>You have been logged out.</p>";
+    exit;
 }
 
 /* -------------------------------------------------------
@@ -57,7 +112,7 @@ if (isset($_POST['register_btn'])) {
     if ($password !== $password_confirm) {
         echo "<p style='color:red'>Passwords do not match.</p>";
     } else {
-        if ($db->createUser($login, $password)) {
+        if ($db->createUser($login, $password, $email, $name, $surname)) {
             echo "<p>User <b>$login</b> has been created.</p>";
         } else {
             echo "<p style='color:red'>User creation failed.</p>";
@@ -97,12 +152,12 @@ if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
 
 ?>
 
-<!-- -------------------------------------------------------
-     LOGIN FORM (only for guests)
--------------------------------------------------------- -->
-<?php if (!isset($_SESSION['uid'])): ?>
+<?php
+// Jeśli nie zalogowany ORAZ nie oczekujemy na kod 2FA - wyświetl Logowanie i Rejestrację
+if (!isset($_SESSION['uid']) && !isset($_SESSION['2fa_pending'])):
+    ?>
     <hr>
-    <h3>Login</h3>
+    <h3>Login (Krok 1: Login/Hasło)</h3>
     <form method="post">
         Login: <input type="text" required name="login"><br>
         Password: <input type="password" required name="password"><br>
@@ -121,12 +176,21 @@ if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
         <input type="submit" name="register_btn" value="Register">
     </form>
 
-<?php endif; ?>
+<?php
+// Jeśli oczekujemy na kod 2FA - wyświetl formularz 2FA (Task 5)
+elseif (isset($_SESSION['2fa_pending'])):
+    ?>
+    <hr>
+    <h3>Two-Factor Authentication (Krok 2: Kod 2FA)</h3>
+    <form method="post">
+        Wprowadź 6-cyfrowy kod: <input type="text" required name="two_factor_code" pattern="\d{6}" title="Wymagany jest 6-cyfrowy kod"><br>
+        <input type="submit" name="verify_2fa_btn" value="Verify Code">
+    </form>
 
-<!-- -------------------------------------------------------
-     LOGOUT FORM (only for logged users)
--------------------------------------------------------- -->
-<?php if (isset($_SESSION['uid'])): ?>
+<?php
+// Jeśli zalogowany - wyświetl Wylogowanie i Zmianę hasła
+elseif (isset($_SESSION['uid'])):
+    ?>
     <hr>
     <h3>Logout</h3>
     <form method="post">
