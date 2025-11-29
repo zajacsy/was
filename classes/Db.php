@@ -77,9 +77,15 @@ class Db
 
     /* ----------------------- USER FUNCTIONS ----------------------- */
 
-    public function createUser($login, $password, $privilleges = 'USER')
+    public function createUser($login, $password, $email, $name, $surname, $privilleges = 'USER')
     {
         $login = Filter::filterName($login);
+
+        // DODANE: Nowe filtry dla Name, Surname i Email
+        $email = Filter::filterEmail($email);
+        $name = Filter::filterName($name);
+        $surname = Filter::filterName($surname);
+
         $privilleges = strtoupper($privilleges);
         $salt = bin2hex(random_bytes(16));
 
@@ -88,11 +94,12 @@ class Db
 
 
         $stmt = $this->pdo->prepare("
-            INSERT INTO user (login, hash, salt, privilleges)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO user (login, hash, salt, privilleges, email, name, surname)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
 
-        return $stmt->execute([$login, $encrypted_hash, $salt, $privilleges]);
+        // ZMODYFIKOWANE: Dodano nowe zmienne do execute
+        return $stmt->execute([$login, $encrypted_hash, $salt, $privilleges, $email, $name, $surname]);
     }
 
     public function getUserByLoginAndPassword($login, $password)
@@ -172,5 +179,9 @@ public function getUserById($id) {
         $stmt->execute([$text]);
         return $stmt->fetchAll();
     }
+
+
 }
+
+
 ?>

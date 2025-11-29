@@ -50,6 +50,10 @@ if (isset($_POST['register_btn'])) {
     $password = $_POST['password'];
     $password_confirm = $_POST['password_confirm'];
 
+    $email = $_POST['email'] ?? '';
+    $name = $_POST['name'] ?? '';
+    $surname = $_POST['surname'] ?? '';
+
     if ($password !== $password_confirm) {
         echo "<p style='color:red'>Passwords do not match.</p>";
     } else {
@@ -109,6 +113,9 @@ if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
     <h3>Register new user</h3>
     <form method="post">
         Login: <input type="text" required name="login"><br>
+        Email: <input type="email" required name="email"><br>
+        Name: <input type="text" required name="name"><br>
+        Surname: <input type="text" required name="surname"><br>
         Password: <input type="password" name="password" required minlength="8"><br>
         Confirm: <input type="password" name="password_confirm" required><br>
         <input type="submit" name="register_btn" value="Register">
