@@ -44,7 +44,8 @@ if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
         $db->update2FACode($user->id, null);
 
         $db->addLog($user->id, "User logged in successfully with 2FA");
-        echo "<p>Logged in as <b>{$user->login}</b></p>";
+        header("Location: index.php");
+        exit;
     } else {
         echo "<p style='color:red'>Invalid 2FA code or temporary session lost. Please try logging in again.</p>";
     }
@@ -52,7 +53,7 @@ if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
 
 
 /* -------------------------------------------------------
-   LOGIN (ZMODYFIKOWANE DLA ETAPU 1 2FA) (Task 5)
+   LOGIN (ETAP 1 2FA) (Task 5)
 -------------------------------------------------------- */
 if (isset($_POST['login_btn'])) {
 
