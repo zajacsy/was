@@ -80,6 +80,26 @@ if (isset($_POST['login_btn'])) {
         echo "<p style='color:blue'>Login successful. A 6-digit code has been 'sent' to your email (<b>{$user->email}</b>). W celach demonstracyjnych, kod to: <b>$code</b>.</p>";
         echo "<p>Proszę wprowadzić kod poniżej.</p>";
 
+
+        // 4. RZECZYWISTA WYSYŁKA KODU MAILEM
+        $to = $user->email;
+        $subject = "Twój kod 2FA do bezpiecznej aplikacji";
+        $message = "Witaj,\n\nTwój jednorazowy kod 2FA to: " . $code . "\n\nZachowaj go w tajemnicy.";
+
+        // Ustalenie nagłówka 'From'
+        $headers = "From: System Bezpieczeństwa <zajacsy@gmail.com>\r\n";
+
+        // Próba wysłania maila
+        if (mail($to, $subject, $message, $headers)) {
+            echo "<p style='color:blue'>Login successful. Kod 2FA został wysłany na adres: <b>{$user->email}</b>. Proszę go wprowadzić poniżej.</p>";
+        } else {
+            // WAŻNE: W przypadku błędu wysyłki (np. brak konfiguracji serwera),
+            // nadal wyświetlamy kod, aby umożliwić ukończenie laboratoryjne.
+            echo "<p style='color:red'>Login successful, ale WYSYŁKA MAILOWA NIE POWIODŁA SIĘ. (Sprawdź konfigurację serwera SMTP)</p>";
+            echo "<p>W celach demonstracyjnych, kod to: <b>$code</b>. Proszę go wprowadzić poniżej.</p>";
+        }
+
+
     } else {
         echo "<p style='color:red'>Login failed</p>";
     }
