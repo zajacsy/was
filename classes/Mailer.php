@@ -5,17 +5,25 @@ use PHPMailer\PHPMailer\Exception;
 
 class Mailer {
 
-    private const SMTP_HOST = 'smtp.poczta.onet.pl';
-    private const SMTP_USERNAME = 'example@org.com';
-    private const SMTP_PASSWORD = 'password';
-    private const SMTP_SECURE = 'ssl';
-    private const SMTP_PORT = 465;
-    private const FROM_EMAIL = 'example@org.com';
+    private const SMTP_HOST = 'xxxx';
+    private const SMTP_USERNAME = 'xxxx';
+    private const SMTP_PASSWORD = 'xxxx';
+    private const SMTP_SECURE =  'ssl'; //'tls';
+    private const SMTP_PORT = 465; //587;
+    private const FROM_EMAIL = 'xxxx';
     private const FROM_NAME = 'OTP Source';
 
     public static function send2FaCode(string $address, string $code): bool {
 
         $mail = new PHPMailer(true);
+
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
 
         try {
             $mail->isSMTP();
@@ -26,7 +34,7 @@ class Mailer {
             $mail->SMTPSecure = self::SMTP_SECURE;
             $mail->Port = self::SMTP_PORT;
             $mail->CharSet = 'UTF-8';
-
+            $mail->AuthType = 'PLAIN';
             $mail->SMTPDebug=2;
             $mail->Timeout=10;
             $mail->Debugoutput='html';
