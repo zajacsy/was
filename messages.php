@@ -6,7 +6,6 @@ include_once "classes/Db.php";
 Page::display_header("Messages");
 $db = new Db("localhost", "root", "", "bezpieczenstwo");
 
-// Jeśli jest wyszukiwanie – pobierz wyniki
 $search = $_GET['search'] ?? null;
 
 $allMessages = $db->getAllMessages();
@@ -30,7 +29,6 @@ if ($search) {
 
 <hr>
 
-<!-- Pole wyszukiwania -->
 <form method="GET">
     <input type="text" name="search" placeholder="Szukaj wiadomości..."
            value="<?php echo htmlspecialchars($search ?? ''); ?>">

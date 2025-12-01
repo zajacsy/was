@@ -14,7 +14,7 @@ function check_session() {
         $now = time();
 
         if ($now > $_SESSION['expire']) {
-            // Sesja wygasła
+
             session_unset();
             session_destroy();
 

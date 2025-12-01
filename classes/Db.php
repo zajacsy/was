@@ -11,7 +11,6 @@ class Db
     {
         $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8";
 
-        // Ignorujemy parametry i narzucamy konto aplikacji
         $user = "root";
         $pass = "";
 
@@ -81,7 +80,6 @@ class Db
     {
         $login = Filter::filterName($login);
 
-        // DODANE: Nowe filtry dla Name, Surname i Email
         $email = Filter::filterEmail($email);
         $name = Filter::filterName($name);
         $surname = Filter::filterName($surname);
@@ -98,7 +96,6 @@ class Db
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
 
-        // ZMODYFIKOWANE: Dodano nowe zmienne do execute
         return $stmt->execute([$login, $encrypted_hash, $salt, $privilleges, $email, $name, $surname]);
     }
 
@@ -175,7 +172,6 @@ class Db
     }
 
 
-// Pobranie użytkownika po ID
 public function getUserById($id) {
         $stmt = $this->pdo->prepare("
             SELECT * FROM user WHERE id = ?
@@ -185,7 +181,6 @@ public function getUserById($id) {
     }
     public function update2FACode($uid, $code)
     {
-        // Używamy kolumny temp_2fa_code (zakładamy, że została dodana)
         $stmt = $this->pdo->prepare("
             UPDATE user SET temp_2fa_code = ? WHERE id = ?
         ");

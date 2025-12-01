@@ -1,16 +1,16 @@
 <?php
+require 'vendor/autoload.php';
 include_once "session_handler.php";
 include_once "classes/Db.php";
 include_once "classes/Page.php";
 include_once "classes/Filter.php";
+include_once "classes/Mailer.php";
 
 Page::display_header("Access Control");
 
 $db = new Db("localhost", "root", "", "bezpieczenstwo");
 
-/* -------------------------------------------------------
-   WYŚWIETLANIE KOMUNIKATU O WYGAŚNIĘCIU SESJI (Task 6)
--------------------------------------------------------- */
+
 if (isset($_SESSION['timeout_message'])) {
     echo "<p style='color:red'>" . htmlspecialchars($_SESSION['timeout_message']) . "</p>";
     unset($_SESSION['timeout_message']);
@@ -18,7 +18,7 @@ if (isset($_SESSION['timeout_message'])) {
 
 
 /* -------------------------------------------------------
-   2FA CODE VERIFICATION (DODANE - ETAP 2 LOGOWANIA) (Task 5)
+   2FA CODE VERIFICATION (ETAP 2 LOGOWANIA)
 -------------------------------------------------------- */
 if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
     $entered_code = $_POST['two_factor_code'];
@@ -27,33 +27,45 @@ if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
     $user = $db->getUserById($user_id);
 
     if ($user && $entered_code === $user->temp_2fa_code && strlen($entered_code) === 6) {
-        // UDANE LOGOWANIE (Etap 2 Zakończony)
 
-        // Usuń tymczasowe zmienne sesji 2FA
         unset($_SESSION['2fa_pending']);
         unset($_SESSION['pending_uid']);
 
-        // Ustaw końcowe zmienne sesji
         $_SESSION['uid'] = $user->id;
         $_SESSION['login'] = $user->login;
-
-        // Ustaw CZAS WYGAŚNIĘCIA SESJI (Ukończenie Task 6)
         $_SESSION['expire'] = time() + SESSION_TIMEOUT_SECONDS;
 
-        // Wyczyść kod 2FA w bazie danych
         $db->update2FACode($user->id, null);
 
         $db->addLog($user->id, "User logged in successfully with 2FA");
+
+        unset($_SESSION['2fa_pending']);
+        unset($_SESSION['pending_uid']);
         header("Location: index.php");
         exit;
     } else {
         echo "<p style='color:red'>Invalid 2FA code or temporary session lost. Please try logging in again.</p>";
     }
 }
+/* -------------------------------------------------------
+   ANULOWANIE 2FA
+-------------------------------------------------------- */
+
+if (isset($_POST['cancel_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
+
+    unset($_SESSION['2fa_pending']);
+    unset($_SESSION['pending_uid']);
+    unset($_SESSION['2fa_start_time']);
+
+    $_SESSION['timeout_message'] = "Anulowano weryfikację dwuetapową. Zaloguj się ponownie.";
+
+    header("Location: access_control.php");
+    exit;
+}
 
 
 /* -------------------------------------------------------
-   LOGIN (ETAP 1 2FA) (Task 5)
+   LOGIN (ETAP 1 2FA)
 -------------------------------------------------------- */
 if (isset($_POST['login_btn'])) {
 
@@ -62,39 +74,24 @@ if (isset($_POST['login_btn'])) {
 
     $user = $db->getUserByLoginAndPassword($login, $password);
 
-    // Sprawdzenie loginu i hasła
     if ($user) {
-        // Udane sprawdzenie login/hasło (Etap 1)
 
-        // 1. Generowanie 6-cyfrowego kodu
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // 2. Zapisz kod tymczasowo w bazie danych
         $db->update2FACode($user->id, $code);
 
-        // 3. Ustaw tymczasowe zmienne sesji do śledzenia 2FA
         $_SESSION['2fa_pending'] = true;
         $_SESSION['pending_uid'] = $user->id;
+        $_SESSION['2fa_start_time'] = time();
 
-        // 4. Symulacja wysyłki kodu
-        echo "<p style='color:blue'>Login successful. A 6-digit code has been 'sent' to your email (<b>{$user->email}</b>). W celach demonstracyjnych, kod to: <b>$code</b>.</p>";
-        echo "<p>Proszę wprowadzić kod poniżej.</p>";
+        //echo "<p style='color:blue'>Login successful. A 6-digit code has been 'sent' to your email (<b>{$user->email}</b>). W celach demonstracyjnych, kod to: <b>$code</b>.</p>";
+        //echo "<p>Proszę wprowadzić kod poniżej.</p>";
 
+        $email_sent = Mailer::send2FaCode($user->email, $code);
 
-        // 4. RZECZYWISTA WYSYŁKA KODU MAILEM
-        $to = $user->email;
-        $subject = "Twój kod 2FA do bezpiecznej aplikacji";
-        $message = "Witaj,\n\nTwój jednorazowy kod 2FA to: " . $code . "\n\nZachowaj go w tajemnicy.";
-
-        // Ustalenie nagłówka 'From'
-        $headers = "From: System Bezpieczeństwa <zajacsy@gmail.com>\r\n";
-
-        // Próba wysłania maila
-        if (mail($to, $subject, $message, $headers)) {
+        if ($email_sent) {
             echo "<p style='color:blue'>Login successful. Kod 2FA został wysłany na adres: <b>{$user->email}</b>. Proszę go wprowadzić poniżej.</p>";
         } else {
-            // WAŻNE: W przypadku błędu wysyłki (np. brak konfiguracji serwera),
-            // nadal wyświetlamy kod, aby umożliwić ukończenie laboratoryjne.
             echo "<p style='color:red'>Login successful, ale WYSYŁKA MAILOWA NIE POWIODŁA SIĘ. (Sprawdź konfigurację serwera SMTP)</p>";
             echo "<p>W celach demonstracyjnych, kod to: <b>$code</b>. Proszę go wprowadzić poniżej.</p>";
         }
@@ -159,7 +156,6 @@ if (isset($_POST['delete_message']) && isset($_SESSION['uid'])) {
 /* -------------------------------------------------------
     CHANGE PASSWORD (POST)
 -------------------------------------------------------- */
-
 if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
     $new = $_POST['new_password'];
     $confirm = $_POST['new_password_confirm'];
@@ -178,7 +174,6 @@ if(isset($_POST['change_password_btn']) && isset($_SESSION['uid'])) {
 /* -------------------------------------------------------
    UPDATE USER (POST)
 -------------------------------------------------------- */
-
 if (isset($_POST['update_profile_btn']) && isset($_SESSION['uid'])) {
 
     $email = $_POST['email'] ?? '';
@@ -187,7 +182,6 @@ if (isset($_POST['update_profile_btn']) && isset($_SESSION['uid'])) {
 
     if ($db->updateUserAccount($_SESSION['uid'], $email, $name, $surname)) {
         echo "<p style='color:green'>Dane profilu zaktualizowane pomyślnie!</p>";
-        // Przekierowanie, aby wymusić odświeżenie danych na stronie
         header("Location: access_control.php");
         exit;
     } else {
@@ -198,7 +192,6 @@ if (isset($_POST['update_profile_btn']) && isset($_SESSION['uid'])) {
 ?>
 
 <?php
-// Jeśli nie zalogowany ORAZ nie oczekujemy na kod 2FA - wyświetl Logowanie i Rejestrację
 if (!isset($_SESSION['uid']) && !isset($_SESSION['2fa_pending'])):
     ?>
     <hr>
@@ -222,7 +215,6 @@ if (!isset($_SESSION['uid']) && !isset($_SESSION['2fa_pending'])):
     </form>
 
 <?php
-// Jeśli oczekujemy na kod 2FA - wyświetl formularz 2FA (Task 5)
 elseif (isset($_SESSION['2fa_pending'])):
     ?>
     <hr>
@@ -232,11 +224,12 @@ elseif (isset($_SESSION['2fa_pending'])):
         <input type="submit" name="verify_2fa_btn" value="Verify Code">
     </form>
 
-<?php
-// Jeśli zalogowany - wyświetl Wylogowanie i Zmianę hasła i edycje danych
-elseif (isset($_SESSION['uid'])):
+    <form method="post" style="margin-top: 10px;">
+        <input type="submit" name="cancel_2fa_btn" value="Anuluj i wróć do logowania">
+    </form>
 
-    // POBIERAMY OBIEKT UŻYTKOWNIKA JEDEN RAZ
+<?php
+elseif (isset($_SESSION['uid'])):
     $user = $db->getUserById($_SESSION['uid']);
     if (!$user) {
         session_destroy();
@@ -276,11 +269,10 @@ elseif (isset($_SESSION['uid'])):
     <?php
 
     if (isset($user)) {
-        // Jeśli admin – wszystkie logi, jeśli zwykły użytkownik – tylko własne
         if (strtoupper($user->privilleges) === 'ADMIN') {
-            $logs = $db->getLogs(); // admin widzi wszystkie logi
+            $logs = $db->getLogs();
         } else {
-            $logs = $db->getLogs($user->id); // zwykły user widzi tylko swoje logi
+            $logs = $db->getLogs($user->id);
         }
 
         foreach ($logs as $log) {
@@ -301,7 +293,6 @@ elseif (isset($_SESSION['uid'])):
         $messages = $db->getAllMessages();
         foreach ($messages as $msg) {
 
-            // TASK 7: whitelist
             if ($msg->type !== "public" && $msg->type !== "private") continue;
 
             // private messages only for logged users
