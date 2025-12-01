@@ -240,7 +240,7 @@ elseif (isset($_SESSION['2fa_pending'])):
     </form>
 
 <?php
-elseif (isset($_SESSION['uid']) && isset($user)):
+elseif (isset($_SESSION['uid'])):
     $user = $db->getUserById($_SESSION['uid']);
     if (!$user) {
         session_destroy();

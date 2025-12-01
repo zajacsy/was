@@ -35,9 +35,9 @@ class Mailer {
             $mail->Port = self::SMTP_PORT;
             $mail->CharSet = 'UTF-8';
             $mail->AuthType = 'PLAIN';
-            $mail->SMTPDebug=2;
+            //$mail->SMTPDebug=2;
             $mail->Timeout=10;
-            $mail->Debugoutput='html';
+            //$mail->Debugoutput='html';
 
             $mail->setFrom(self::FROM_EMAIL, self::FROM_NAME);
             $mail->addAddress($address);

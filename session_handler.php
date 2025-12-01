@@ -8,7 +8,6 @@ if (session_status() === PHP_SESSION_NONE) {
 define('SESSION_TIMEOUT_MINUTES', 5);
 define('SESSION_TIMEOUT_SECONDS', SESSION_TIMEOUT_MINUTES * 60);
 
-
 function check_session() {
     if (isset($_SESSION['uid']) && isset($_SESSION['expire'])) {
         $now = time();
@@ -18,7 +17,8 @@ function check_session() {
             session_unset();
             session_destroy();
 
-            $_SESSION['timeout_message'] = "Twoja sesja wygasła z powodu braku aktywności (" . SESSION_TIMEOUT_MINUTES . " minut). Zaloguj się ponownie.";
+            $_SESSION['timeout_message'] = "Twoja sesja wygasła z powodu 
+            braku aktywności (" . SESSION_TIMEOUT_MINUTES . " minut). Zaloguj się ponownie.";
             header("Location: access_control.php");
             exit;
         } else {
