@@ -10,6 +10,18 @@ Page::display_header("Access Control");
 
 $db = new Db("localhost", "root", "", "bezpieczenstwo");
 
+if (isset($_SESSION['2fa_pending']) && isset($_SESSION['2fa_start_time'])) {
+    if (time() > $_SESSION['2fa_start_time'] + SESSION_TIMEOUT_SECONDS) {
+
+        unset($_SESSION['2fa_pending']);
+        unset($_SESSION['pending_uid']);
+        unset($_SESSION['2fa_start_time']);
+
+        $_SESSION['timeout_message'] = "Weryfikacja dwuetapowa wygasła z powodu braku aktywności. Zaloguj się ponownie.";
+        header("Location: access_control.php");
+        exit;
+    }
+}
 
 if (isset($_SESSION['timeout_message'])) {
     echo "<p style='color:red'>" . htmlspecialchars($_SESSION['timeout_message']) . "</p>";
@@ -30,6 +42,7 @@ if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
 
         unset($_SESSION['2fa_pending']);
         unset($_SESSION['pending_uid']);
+        unset($_SESSION['2fa_start_time']);
 
         $_SESSION['uid'] = $user->id;
         $_SESSION['login'] = $user->login;
@@ -39,8 +52,6 @@ if (isset($_POST['verify_2fa_btn']) && isset($_SESSION['2fa_pending'])) {
 
         $db->addLog($user->id, "User logged in successfully with 2FA");
 
-        unset($_SESSION['2fa_pending']);
-        unset($_SESSION['pending_uid']);
         header("Location: index.php");
         exit;
     } else {
@@ -229,7 +240,7 @@ elseif (isset($_SESSION['2fa_pending'])):
     </form>
 
 <?php
-elseif (isset($_SESSION['uid'])):
+elseif (isset($_SESSION['uid']) && isset($user)):
     $user = $db->getUserById($_SESSION['uid']);
     if (!$user) {
         session_destroy();
@@ -268,7 +279,7 @@ elseif (isset($_SESSION['uid'])):
 <ul>
     <?php
 
-    if (isset($user)) {
+    if (isset($_SESSION['uid']) && isset($user)) {
         if (strtoupper($user->privilleges) === 'ADMIN') {
             $logs = $db->getLogs();
         } else {
